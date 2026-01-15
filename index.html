@@ -8108,31 +8108,41 @@
             progress.classList.add('active');
 
             try {
-                // Crear contenedor temporal
+                // Crear contenedor temporal visible para html2canvas
                 const container = document.createElement('div');
                 container.innerHTML = generatePDFContent();
-                container.style.position = 'absolute';
-                container.style.left = '-9999px';
+                container.style.position = 'fixed';
+                container.style.left = '0';
                 container.style.top = '0';
                 container.style.width = '800px';
+                container.style.background = 'white';
+                container.style.zIndex = '-1';
+                container.style.opacity = '0';
+                container.style.pointerEvents = 'none';
                 document.body.appendChild(container);
+
+                // Esperar a que el DOM se actualice
+                await new Promise(resolve => setTimeout(resolve, 100));
 
                 // Configuración de html2pdf
                 const opt = {
-                    margin: 10,
+                    margin: [10, 10, 10, 10],
                     filename: `propuesta-alianza-${new Date().toISOString().split('T')[0]}.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
+                    image: { type: 'jpeg', quality: 0.95 },
                     html2canvas: {
                         scale: 2,
                         useCORS: true,
-                        logging: false
+                        logging: false,
+                        allowTaint: true,
+                        backgroundColor: '#ffffff',
+                        windowWidth: 800
                     },
                     jsPDF: {
                         unit: 'mm',
                         format: 'a4',
                         orientation: 'portrait'
                     },
-                    pagebreak: { mode: 'avoid-all' }
+                    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
                 };
 
                 // Generar PDF
