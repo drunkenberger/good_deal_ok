@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Alianza Estratégica | Estudio IA + Agencia Creativa</title>
-    <!-- Librería para exportar a PDF -->
+    <!-- Librerías para exportar a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         * {
@@ -5263,9 +5264,17 @@
             </div>
 
             <div class="export-options">
-                <button class="export-btn primary" onclick="exportToPDF()">
+                <button class="export-btn primary" onclick="exportToHTML()">
+                    <span class="icon">🌐</span>
+                    <span>Descargar HTML</span>
+                </button>
+                <button class="export-btn" onclick="exportToJSON()">
+                    <span class="icon">📦</span>
+                    <span>Exportar JSON</span>
+                </button>
+                <button class="export-btn" onclick="importFromJSON()">
                     <span class="icon">📥</span>
-                    <span>Descargar PDF</span>
+                    <span>Importar JSON</span>
                 </button>
                 <button class="export-btn" onclick="window.print()">
                     <span class="icon">🖨️</span>
@@ -5273,9 +5282,11 @@
                 </button>
             </div>
 
+            <input type="file" id="jsonFileInput" accept=".json" style="display: none;" onchange="handleJSONImport(event)">
+
             <div class="export-progress" id="exportProgress">
                 <div class="export-spinner"></div>
-                <span>Generando PDF...</span>
+                <span>Procesando...</span>
             </div>
         </div>
     </div>
@@ -8103,53 +8114,423 @@
             return html;
         }
 
+        // ========== EXPORTAR A HTML ==========
+        function exportToHTML() {
+            const progress = document.getElementById('exportProgress');
+            progress.classList.add('active');
+
+            try {
+                const htmlContent = generatePDFContent();
+                const fullHTML = `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Propuesta de Alianza Estratégica</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+        .pdf-container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .pdf-header { background: linear-gradient(135deg, #1a2332 0%, #2d3a4f 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px; text-align: center; }
+        .pdf-header h1 { font-size: 24px; margin-bottom: 8px; }
+        .pdf-header p { opacity: 0.9; font-size: 14px; }
+        .pdf-section { margin-bottom: 25px; padding: 20px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #10b981; }
+        .pdf-section h2 { color: #1a2332; font-size: 16px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .pdf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .pdf-stat { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .pdf-stat .value { font-size: 24px; font-weight: bold; color: #10b981; }
+        .pdf-stat .label { font-size: 12px; color: #64748b; margin-top: 5px; }
+        .pdf-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .pdf-table th, .pdf-table td { padding: 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .pdf-table th { background: #f1f5f9; font-weight: 600; color: #475569; }
+        .pdf-footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0; margin-top: 30px; }
+        @media print { body { background: white; padding: 0; } .pdf-container { box-shadow: none; } }
+    </style>
+</head>
+<body>
+    <div class="pdf-container">
+        ${htmlContent}
+    </div>
+</body>
+</html>`;
+
+                const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `propuesta-alianza-${new Date().toISOString().split('T')[0]}.html`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+            } catch (error) {
+                console.error('Error al exportar HTML:', error);
+                alert('Error al exportar HTML. Por favor intenta de nuevo.');
+            } finally {
+                progress.classList.remove('active');
+            }
+        }
+
+        // ========== EXPORTAR A JSON ==========
+        function exportToJSON() {
+            const config = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                configuracion: {
+                    retainer: parseInt(document.getElementById('retainer').value),
+                    ipSplit: parseInt(document.getElementById('ipSplit').value),
+                    duration: parseInt(document.getElementById('duration').value),
+                    finderFee: parseInt(document.getElementById('finderFee').value),
+                    equityPercent: parseFloat(document.getElementById('equityPercent').value),
+                    vestingPeriod: parseInt(document.getElementById('vestingPeriod').value),
+                    cliffPeriod: parseInt(document.getElementById('cliffPeriod').value)
+                },
+                proyectos: (projectsData.projects || []).map(p => ({
+                    name: p.name,
+                    expenses: p.expenses || { labor: [], tools: [], other: [] }
+                })),
+                referidos: (state.referrals || []).map(r => ({
+                    name: r.name,
+                    value: r.value
+                })),
+                licencias: (licenseProducts || []).map(l => ({
+                    name: l.name,
+                    price: l.price,
+                    type: l.type,
+                    costPerUnit: l.costPerUnit,
+                    quantity: l.quantity
+                })),
+                equity: {
+                    studioValuation: parseInt(document.getElementById('studioValuation')?.value || 5000000),
+                    studioFutureValue: parseInt(document.getElementById('studioFutureValue')?.value || 15000000),
+                    agencyValuation: parseInt(document.getElementById('agencyValuation')?.value || 7500000),
+                    agencyFutureValue: parseInt(document.getElementById('agencyFutureValue')?.value || 25000000)
+                },
+                breakeven: {
+                    initialInvestment: parseInt(document.getElementById('beInitialInvestment')?.value || 50000),
+                    monthlyExpenses: parseInt(document.getElementById('beMonthlyExpenses')?.value || 15000),
+                    avgProjectIncome: parseInt(document.getElementById('beAvgProjectIncome')?.value || 75000),
+                    projectsPerMonth: parseFloat(document.getElementById('beProjectsPerMonth')?.value || 1)
+                }
+            };
+
+            const jsonString = JSON.stringify(config, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `configuracion-alianza-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ========== IMPORTAR JSON ==========
+        function importFromJSON() {
+            document.getElementById('jsonFileInput').click();
+        }
+
+        function handleJSONImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+
+                    if (!config.version || !config.configuracion) {
+                        throw new Error('Formato de archivo inválido');
+                    }
+
+                    // Aplicar configuración base
+                    const c = config.configuracion;
+                    if (c.retainer) document.getElementById('retainer').value = c.retainer;
+                    if (c.ipSplit !== undefined) document.getElementById('ipSplit').value = c.ipSplit;
+                    if (c.duration) document.getElementById('duration').value = c.duration;
+                    if (c.finderFee !== undefined) document.getElementById('finderFee').value = c.finderFee;
+                    if (c.equityPercent !== undefined) document.getElementById('equityPercent').value = c.equityPercent;
+                    if (c.vestingPeriod) document.getElementById('vestingPeriod').value = c.vestingPeriod;
+                    if (c.cliffPeriod !== undefined) document.getElementById('cliffPeriod').value = c.cliffPeriod;
+
+                    // Importar proyectos
+                    if (config.proyectos && Array.isArray(config.proyectos)) {
+                        projectsData.projects = config.proyectos.map(p => ({
+                            id: Date.now() + Math.random(),
+                            name: p.name,
+                            expenses: p.expenses || { labor: [], tools: [], other: [] }
+                        }));
+                        if (projectsData.projects.length > 0) {
+                            projectsData.currentProjectId = projectsData.projects[0].id;
+                        }
+                    }
+
+                    // Importar referidos
+                    if (config.referidos && Array.isArray(config.referidos)) {
+                        state.referrals = config.referidos.map(r => ({
+                            id: Date.now() + Math.random(),
+                            name: r.name,
+                            value: r.value
+                        }));
+                    }
+
+                    // Importar licencias
+                    if (config.licencias && Array.isArray(config.licencias)) {
+                        licenseProducts.length = 0; // Limpiar array existente
+                        config.licencias.forEach(l => {
+                            licenseProducts.push({
+                                id: Date.now() + Math.random(),
+                                name: l.name,
+                                price: l.price,
+                                type: l.type,
+                                costPerUnit: l.costPerUnit || l.cost || 0,
+                                quantity: l.quantity || 0
+                            });
+                        });
+                    }
+
+                    // Importar equity
+                    if (config.equity) {
+                        const eq = config.equity;
+                        if (eq.studioValuation) document.getElementById('studioValuation').value = eq.studioValuation;
+                        if (eq.studioFutureValue) document.getElementById('studioFutureValue').value = eq.studioFutureValue;
+                        if (eq.agencyValuation) document.getElementById('agencyValuation').value = eq.agencyValuation;
+                        if (eq.agencyFutureValue) document.getElementById('agencyFutureValue').value = eq.agencyFutureValue;
+                    }
+
+                    // Importar breakeven
+                    if (config.breakeven) {
+                        const be = config.breakeven;
+                        if (be.initialInvestment) document.getElementById('beInitialInvestment').value = be.initialInvestment;
+                        if (be.monthlyExpenses) document.getElementById('beMonthlyExpenses').value = be.monthlyExpenses;
+                        if (be.avgProjectIncome) document.getElementById('beAvgProjectIncome').value = be.avgProjectIncome;
+                        if (be.projectsPerMonth) document.getElementById('beProjectsPerMonth').value = be.projectsPerMonth;
+                    }
+
+                    // Actualizar todas las vistas
+                    updateAllCalculations();
+                    renderProjectSelector();
+                    updateReferralsTable();
+                    renderLicensesTable();
+                    updateLicenseSummary();
+
+                    alert('✅ Configuración importada exitosamente');
+
+                } catch (error) {
+                    console.error('Error al importar JSON:', error);
+                    alert('❌ Error al importar: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input
+        }
+
         async function exportToPDF() {
             const progress = document.getElementById('exportProgress');
             progress.classList.add('active');
 
             try {
-                // Crear contenedor temporal visible para html2canvas
-                const container = document.createElement('div');
-                container.innerHTML = generatePDFContent();
-                container.style.position = 'fixed';
-                container.style.left = '0';
-                container.style.top = '0';
-                container.style.width = '800px';
-                container.style.background = 'white';
-                container.style.zIndex = '-1';
-                container.style.opacity = '0';
-                container.style.pointerEvents = 'none';
-                document.body.appendChild(container);
+                // Usar jsPDF directamente para generar el PDF con texto
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const margin = 15;
+                let y = margin;
 
-                // Esperar a que el DOM se actualice
-                await new Promise(resolve => setTimeout(resolve, 100));
+                const today = new Date().toLocaleDateString('es-MX', {
+                    year: 'numeric', month: 'long', day: 'numeric'
+                });
 
-                // Configuración de html2pdf
-                const opt = {
-                    margin: [10, 10, 10, 10],
-                    filename: `propuesta-alianza-${new Date().toISOString().split('T')[0]}.pdf`,
-                    image: { type: 'jpeg', quality: 0.95 },
-                    html2canvas: {
-                        scale: 2,
-                        useCORS: true,
-                        logging: false,
-                        allowTaint: true,
-                        backgroundColor: '#ffffff',
-                        windowWidth: 800
-                    },
-                    jsPDF: {
-                        unit: 'mm',
-                        format: 'a4',
-                        orientation: 'portrait'
-                    },
-                    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-                };
+                // Función para agregar nueva página si es necesario
+                function checkNewPage(height = 10) {
+                    if (y + height > pageHeight - margin) {
+                        doc.addPage();
+                        y = margin;
+                    }
+                }
 
-                // Generar PDF
-                await html2pdf().set(opt).from(container).save();
+                // Header
+                doc.setFillColor(26, 35, 50);
+                doc.rect(0, 0, pageWidth, 45, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(20);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Propuesta de Alianza Estratégica', pageWidth / 2, 18, { align: 'center' });
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Estudio de Desarrollo de IA + Agencia de Creatividad', pageWidth / 2, 28, { align: 'center' });
+                doc.setFontSize(10);
+                doc.text(`Documento generado el ${today}`, pageWidth / 2, 38, { align: 'center' });
 
-                // Limpiar
-                document.body.removeChild(container);
+                y = 55;
+                doc.setTextColor(0, 0, 0);
+
+                // Resumen Ejecutivo
+                doc.setFillColor(240, 253, 244);
+                doc.rect(margin, y, pageWidth - 2 * margin, 30, 'F');
+                doc.setDrawColor(16, 185, 129);
+                doc.setLineWidth(1);
+                doc.line(margin, y, margin, y + 30);
+
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(26, 35, 50);
+                doc.text('Resumen Ejecutivo', margin + 5, y + 8);
+
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(55, 65, 81);
+                const totalRetainer = state.retainer * state.duration;
+                const totalPI = state.projects.reduce((sum, p) => sum + (p.value * state.ipSplit / 100), 0);
+                doc.text(`Ingresos proyectados: $${(totalRetainer + totalPI).toLocaleString()} MXN`, margin + 5, y + 16);
+                doc.text(`Duración: ${state.duration} meses | Retainer: $${state.retainer.toLocaleString()}/mes`, margin + 5, y + 23);
+
+                y += 40;
+
+                // 1. Configuración Base
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(37, 99, 235);
+                doc.text('1. Configuración Base del Acuerdo', margin, y);
+                y += 10;
+
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(55, 65, 81);
+
+                const config = [
+                    [`Iguala mensual (Retainer):`, `$${state.retainer.toLocaleString()} MXN/mes`],
+                    [`División de Propiedad Intelectual:`, `${state.ipSplit}% Estudio / ${100 - state.ipSplit}% Agencia`],
+                    [`Duración del contrato:`, `${state.duration} meses`],
+                    [`Total del periodo:`, `$${totalRetainer.toLocaleString()} MXN`]
+                ];
+
+                config.forEach(([label, value]) => {
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(label, margin, y);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(value, margin + 70, y);
+                    y += 7;
+                });
+
+                y += 10;
+                checkNewPage(50);
+
+                // 2. Proyectos Simulados
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(37, 99, 235);
+                doc.text('2. Proyectos Simulados', margin, y);
+                y += 10;
+
+                doc.setFontSize(10);
+                doc.setTextColor(55, 65, 81);
+
+                if (state.projects.length === 0) {
+                    doc.setFont('helvetica', 'italic');
+                    doc.text('No hay proyectos simulados en esta propuesta.', margin, y);
+                    y += 7;
+                } else {
+                    state.projects.forEach((project, i) => {
+                        checkNewPage(15);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(`${i + 1}. ${project.name}`, margin, y);
+                        y += 6;
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(`Valor: $${project.value.toLocaleString()} MXN | Tu parte (${state.ipSplit}%): $${Math.round(project.value * state.ipSplit / 100).toLocaleString()} MXN`, margin + 5, y);
+                        y += 8;
+                    });
+                }
+
+                y += 10;
+                checkNewPage(50);
+
+                // 3. Comisiones por Referidos
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(37, 99, 235);
+                doc.text('3. Comisiones por Referidos (Finder\'s Fee)', margin, y);
+                y += 10;
+
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(55, 65, 81);
+                doc.text(`Porcentaje de comisión: ${state.findersFee}%`, margin, y);
+                y += 7;
+
+                const totalFinders = state.referrals.reduce((sum, r) => sum + (r.value * state.findersFee / 100), 0);
+                doc.text(`Total de referidos: ${state.referrals.length} | Comisiones totales: $${totalFinders.toLocaleString()} MXN`, margin, y);
+                y += 15;
+
+                checkNewPage(50);
+
+                // 4. Opciones de Equity
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(37, 99, 235);
+                doc.text('4. Opciones de Equity / Stock Options', margin, y);
+                y += 10;
+
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(55, 65, 81);
+                doc.text(`Porcentaje de opciones cruzadas: ${state.equityOptions}%`, margin, y);
+                y += 7;
+                doc.text(`Período de vesting: ${state.vestingPeriod} meses | Período de cliff: ${state.cliffPeriod} meses`, margin, y);
+                y += 15;
+
+                checkNewPage(50);
+
+                // 5. Resumen Financiero
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(37, 99, 235);
+                doc.text('5. Resumen Financiero Proyectado', margin, y);
+                y += 10;
+
+                // Tabla de resumen
+                doc.setFillColor(249, 250, 251);
+                doc.rect(margin, y, pageWidth - 2 * margin, 35, 'F');
+
+                doc.setFontSize(10);
+                doc.setTextColor(55, 65, 81);
+                const summaryData = [
+                    ['Ingresos por Retainer:', `$${totalRetainer.toLocaleString()} MXN`],
+                    ['Participación en PI:', `$${Math.round(totalPI).toLocaleString()} MXN`],
+                    ['Finder\'s Fees:', `$${Math.round(totalFinders).toLocaleString()} MXN`],
+                    ['TOTAL PROYECTADO:', `$${Math.round(totalRetainer + totalPI + totalFinders).toLocaleString()} MXN`]
+                ];
+
+                let tableY = y + 7;
+                summaryData.forEach(([label, value], i) => {
+                    if (i === summaryData.length - 1) {
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(37, 99, 235);
+                    } else {
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(55, 65, 81);
+                    }
+                    doc.text(label, margin + 5, tableY);
+                    doc.text(value, pageWidth - margin - 5, tableY, { align: 'right' });
+                    tableY += 8;
+                });
+
+                y += 45;
+
+                // Footer
+                checkNewPage(20);
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'italic');
+                doc.setTextColor(107, 114, 128);
+                doc.text('Este documento es una simulación financiera y no constituye un contrato vinculante.', pageWidth / 2, y, { align: 'center' });
+                y += 5;
+                doc.text('Generado con Dashboard de Alianza Estratégica', pageWidth / 2, y, { align: 'center' });
+
+                // Guardar PDF
+                doc.save(`propuesta-alianza-${new Date().toISOString().split('T')[0]}.pdf`);
 
             } catch (error) {
                 console.error('Error al generar PDF:', error);

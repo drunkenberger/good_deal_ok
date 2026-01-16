@@ -28,3 +28,13 @@
 - Sección de proyección con contenedor estilizado (fondo dorado sutil)
 - Responsive design para móvil (grid adaptativo en 3 breakpoints)
 - Función `addPresetLicense()` para agregar productos con un click
+
+[2026-01-15] Agregado sistema de exportación HTML y JSON | Archivos: index.html | Estado: ✅ Exitoso
+- Nueva función `exportToHTML()` para descargar propuesta como archivo HTML standalone
+- Nueva función `exportToJSON()` para exportar configuración completa en formato JSON
+- Nueva función `handleJSONImport()` para importar configuración desde archivo JSON
+- Botones de exportación: 🌐 Descargar HTML, 📦 Exportar JSON, 📥 Importar JSON
+- JSON incluye: configuración base, proyectos con gastos, referidos, licencias, equity, breakeven
+- Permite compartir configuración con otras personas para cargarla en otro host
+- Corregidos IDs de elementos: projectsData.projects, state.referrals, licenseProducts
+- Integración con funciones existentes: renderProjectSelector(), updateReferralsTable(), renderLicensesTable()
